@@ -17,6 +17,7 @@ const provider = require(path.join(out, 'overskill.js'));
 const auth = require(path.join(out, 'customer-auth.js'));
 const persistence = require(path.join(out, 'customer-store.js'));
 const workspace = require(path.join(out, 'customer-workspace.js'));
+const { PilotError } = require(path.join(out, 'pilot-security.js'));
 const purchases = require(path.join(out, 'customer-purchases.js'));
 const origin = 'http://127.0.0.1:3577';
 const oldEnv = { ...process.env };
@@ -106,6 +107,40 @@ test('a forged payer is rejected and the local demo has no checkout or real bala
   await assert.rejects(() => workspace.generateWorkspaceApp(req, user, { prompt: 'App', payerTeamId: 999 }), e => e.status === 400);
   const credits = await workspace.workspaceCredits(user); assert.equal(credits.telemetry, 'simulated');
   const packs = await workspace.workspacePacks(user); assert.equal(packs.checkoutAvailable, false); assert.deepEqual(packs.packs, []);
+});
+
+test('empty or unknown credit accounts cannot dispatch a build or alter an existing app', async () => {
+  const { db, user, req } = live(); const original = readyApp(db, user);
+  let calls = 0;
+  provider.generate = async () => { calls++; throw new Error('Unfunded generation must not be sent'); };
+  for (const balance of [0, -10, null]) {
+    provider.getUsage = async () => ({ ok: true, status: 200, json: { team_id: 21, credits: { balance } } });
+    for (const input of [{ prompt: 'A new app' }, { prompt: 'Edit the saved app', appId: original.id }]) {
+      await assert.rejects(() => workspace.generateWorkspaceApp(req, user, input), e => e.code === (balance === null ? 'credits_unavailable' : 'credits_required'));
+    }
+    assert.deepEqual(db.getApp(user.id, original.id), original);
+    assert.equal(db.listApps(user.id).length, 1);
+  }
+  assert.equal(calls, 0);
+  provider.getUsage = async () => ({ ok: true, status: 200, json: { team_id: 21, credits: { balance: 1000 } } });
+  provider.generate = async () => { calls++; return { ok: true, status: 202, json: { app_id: 'funded-app', job_id: 'funded-job' } }; };
+  const app = await workspace.generateWorkspaceApp(req, user, { prompt: 'Now funded' });
+  assert.equal(db.getApp(user.id, app.id).appId, 'funded-app');
+  assert.equal(calls, 1, 'a fresh known funded balance can proceed without a stranded write lock');
+});
+
+test('an unavailable onboarding profile releases local setup admission without inventing a creator', async () => {
+  const { db } = live();
+  const user = db.upsertIdentity({ issuer: 'https://fixture.invalid', subject: 'new', email: 'new@example.invalid', emailVerified: true, name: 'New' });
+  const req = request(`open_overskill_customer=${db.createSession(user.id, Date.now() + 60_000)}`);
+  let reads = 0;
+  provider.provisionCreator = async () => { reads++; throw new PilotError(503, 'creator_onboarding_unavailable', 'Not enabled'); };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await assert.rejects(() => workspace.provisionWorkspace(req, user), e => e.code === 'creator_onboarding_unavailable');
+    assert.equal(db.getCreator(user.id).state, 'unprovisioned');
+    assert.equal(db.getCreator(user.id).key, undefined);
+  }
+  assert.equal(reads, 2, 'explicit retry can recheck capability after the operator fixes configuration');
 });
 
 test('slow old-job reads cannot overwrite a newer edit or deployment state', async () => {

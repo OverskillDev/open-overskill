@@ -17,7 +17,7 @@ for (const file of ['lib/credit-account.ts', 'lib/pilot-security.ts', 'app/api/c
   fs.writeFileSync(destination, compiled.outputText);
 }
 fs.writeFileSync(path.join(output, 'lib/overskill.js'), 'exports.getUsage = async () => { throw new Error("No simulated usage response configured"); };');
-const { normalizeCreditAccountUsage, normalizeCreatorUsage, unavailableCreditAccount, creatorCreditTeamId } = require(path.join(output, 'lib/credit-account.js'));
+const { normalizeCreditAccountUsage, normalizeCreatorUsage, unavailableCreditAccount, creatorCreditTeamId, workspaceFundingState } = require(path.join(output, 'lib/credit-account.js'));
 const security = require(path.join(output, 'lib/pilot-security.js'));
 const adapter = require(path.join(output, 'lib/overskill.js'));
 const route = require(path.join(output, 'app/api/credit-account/route.js'));
@@ -180,6 +180,27 @@ function meterFixture() {
   };
 }
 const unknown = item => ({ ...item, status:'unknown', value:null, reason:'missing_record' });
+
+test('customer funding distinguishes no credits, unknown telemetry and reserved credits without changing balances', () => {
+  assert.equal(workspaceFundingState(null), 'unknown');
+  assert.equal(workspaceFundingState(unavailableCreditAccount(21)), 'unknown');
+  for (const balance of [0, -25, 0.5, 500]) {
+    const snapshot = normalizeCreditAccountUsage({ team_id: 21, credits: { balance } }, 21);
+    const original = JSON.stringify(snapshot);
+    assert.equal(workspaceFundingState(snapshot), balance > 0 ? 'ready' : 'empty');
+    assert.equal(JSON.stringify(snapshot), original);
+  }
+  assert.equal(workspaceFundingState(normalizeCreditAccountUsage({ team_id: 21, credits: { balance: 1000 } }, 21, { simulated: true })), 'ready');
+  const held = meterFixture();
+  held.metrics.reservations.value = 100;
+  held.metrics.available_for_admission.value = 0;
+  assert.equal(workspaceFundingState(normalizeCreatorUsage(held, 21)), 'reserved');
+  const missingAdmission = meterFixture();
+  missingAdmission.metrics.available_for_admission = unknown(missingAdmission.metrics.available_for_admission);
+  missingAdmission.status = 'partial';
+  assert.equal(workspaceFundingState(normalizeCreatorUsage(missingAdmission, 21)), 'unknown');
+  assert.equal(workspaceFundingState(normalizeCreatorUsage(meterFixture(), 21)), 'ready');
+});
 
 test('versioned meter allowlists fields and keeps gross usage, holds and cached provider values separate', () => {
   const input = meterFixture();

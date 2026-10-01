@@ -114,9 +114,12 @@ export async function provisionCreator(input: {
   const externalCreatorId = input.externalCreatorId === undefined ? requireExternalCreatorId() : requireExternalCreatorId({ OVERSKILL_CREATOR_ID: input.externalCreatorId });
   // Older servers silently ignore unknown POST fields. Verify support with a
   // read before any creation so an undeployed contract cannot make duplicates.
-  const capability = await real<{ creator_identity?: { version?: number; key_recovery?: string } }>("/api/v1/partner/creators/capabilities", { key: config.apiKey });
+  const capability = await real<{ creator_identity?: { version?: number; key_recovery?: string; onboarding_profile?: string } }>("/api/v1/partner/creators/capabilities", { key: config.apiKey });
   if (!capability.ok || capability.json.creator_identity?.version !== 1 || capability.json.creator_identity.key_recovery !== "compare_and_swap") {
     throw new PilotError(503, "creator_identity_unavailable", "This API has not confirmed stable creator provisioning support. No workspace creation was requested. Check the backend rollout and partner access.");
+  }
+  if (capability.json.creator_identity.onboarding_profile !== "api_creator_paid_v1") {
+    throw new PilotError(503, "creator_onboarding_unavailable", "Workspace setup is not available for this operator yet. No workspace was created. Ask the operator to finish connecting its API onboarding profile.");
   }
   return real<ProvisionResponse>("/api/v1/partner/teams", {
     key: config.apiKey,
@@ -125,6 +128,9 @@ export async function provisionCreator(input: {
       name: input.name,
       user_email: input.userEmail,
       external_creator_id: externalCreatorId,
+      // An assertion, never a policy selector. Core must compare this with the
+      // authenticated partner's current profile under its provisioning lock.
+      expected_onboarding_profile: "api_creator_paid_v1",
       // The hosted API binds this stable partner-owned ID to one creator team.
       provision_user: true,
       generate_api_key: true,

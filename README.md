@@ -36,10 +36,10 @@ Demo app metadata and account bindings persist in SQLite across sign-out and ser
 
 | Route | Purpose |
 | --- | --- |
-| `/workspace` | Primary customer flow: sign-in, workspace setup, saved apps, build/edit conversation, preview, publication state, credits/account, and gated existing-pack checkout |
+| `/workspace` | Customer onboarding: account → isolated workspace → existing credit packs → build; saved apps, edit, preview, publication state and usage/account |
 | `/builder` | Original local operator sandbox for inspecting the single-creator API flow |
 | `/examples/minimal` | Small component-composition example |
-| `/guide` | Overview of the original builder components and adapter |
+| `/guide` | Operator/API setup, customer onboarding, original components and adapter |
 | `/` | Project overview |
 
 The customer flow has persistent app ownership and server-held credentials. The older operator sandbox keeps credentials and app ownership in process memory; its sessions disappear on restart. Do not use its operator token as customer authentication.
@@ -77,13 +77,13 @@ Customer browser
 
 Live customer sign-in uses OpenID Connect Authorization Code flow with PKCE. A trusted issuer and subject identify the customer; matching email addresses never merge accounts. Each customer gets an immutable external creator ID. The server holds the partner key for provisioning and an encrypted creator key for that customer's app operations. The browser cannot choose another customer, payer, or backend workspace.
 
-**Stage one uses existing Overskill packs and creator-workspace billing.** Each customer's builds use that customer's Overskill workspace balance. The live adapter reads that creator's effective canonical offers and can request checkout through the gated `creator-credit-packs-v1` core contract. The customer selects only an existing pack; the server determines the creator, offer and idempotency key. The UI presents an explicit Whop checkout link and reads purchase status from Overskill. It does not infer payment from a checkout return or add credits optimistically.
+**Stage one starts new live creator workspaces with zero free credits and uses existing Overskill packs.** The customer journey is account → isolated workspace → credits → build. Creating a workspace does not buy a pack. Each customer's builds use that customer's Overskill workspace balance; existing balances are preserved, and a customer with available credits can continue without another purchase. The live adapter reads that creator's effective canonical offers and can request checkout through the gated `creator-credit-packs-v1` core contract. The customer selects only an existing pack; the server determines the creator, offer and idempotency key. The UI presents an explicit Whop checkout link and reads purchase status from Overskill. It does not infer payment from a checkout return or add credits optimistically.
 
 The starter saves a durable purchase intent before its one checkout dispatch. This is a transport journal for recovery and status display, **not a credit ledger**: Overskill remains responsible for payment fulfillment, refunds and available balance. An uncertain result is recovered through authenticated status reads using the saved core purchase ID or idempotency key. Failed status reads preserve the last confirmed facts, hide checkout links and block another purchase until a successful refresh. The starter adds no shared operator wallet, operator-controlled packs, merchant enrollment flow or affiliate commission system. Customers do not supply model API keys.
 
 Whop checkout links can be reused. Preventing duplicate checkout creation in this app is not a guarantee of only one payment through a link. Unknown or abandoned purchases need manual reconciliation; there is no automatic cancellation, expiration recovery or blind retry. See [CUSTOMER_AUTH.md](CUSTOMER_AUTH.md#creator-credit-pack-checkout) for the contract and operational boundaries.
 
-Balances and recorded gross usage are observations, not invoices, spending caps, or proof of an isolated provider wallet. Unknown values remain unknown. Generation pauses when no usable credit snapshot is available. Existing core workspace billing and auto-top-up policies still apply to live activity.
+Balances and recorded gross usage are observations, not invoices, spending caps, or proof of an isolated provider wallet. Before creating app state or dispatching a build, the customer server blocks a zero/negative balance, credits fully reserved for other work, or unknown funding information. The UI distinguishes **add credits**, **refresh after work finishes**, and **balance unavailable**; an unavailable reading never becomes zero. A positive balance is not a promise that a particular build will be admitted. Core remains responsible for every spending decision and existing workspace billing settings.
 
 ## Live readiness
 
@@ -92,10 +92,12 @@ The local demo is usable now. A hosted paid pilot still depends on the following
 | Area | Implemented in the reference | Remaining for a hosted pilot |
 | --- | --- | --- |
 | Identity and saved apps | OIDC adapter, encrypted server credentials, SQLite ownership, durable operation locks | Configure and verify a real identity provider, persistent host, backups, rate limits, monitoring, and recovery procedure |
-| Creator provisioning | Stable external identity and read-only capability check before creation | Deploy and verify the compatible Overskill core contract and approved partner access |
-| Usage and credits | Creator-scoped read adapter; unavailable telemetry stops new generation | Deploy and verify the core gross-usage/current-balance contract and the pilot's actual funding/cap policy |
+| Creator provisioning | Stable external identity, compare-and-swap key recovery contract, and paid API onboarding-profile checks before creation | Deploy and verify the compatible core contract and configure the authenticated partner for `api_creator_paid_v1` |
+| Usage and credits | Creator-scoped reads; zero, reserved or unknown funding stops new generation before app writes | Deploy and verify the core gross-usage/current-balance contract, zero-free-credit onboarding and the pilot's spending limits |
 | Existing packs | Gated creator-bound offers, durable checkout intent, read-by-key recovery, purchase/refund status and explicit Whop link | Deploy and review the exact compatible core contract and its stable creator-identity dependency; keep the core feature gate OFF until configured real purchase, fulfillment and refund acceptance passes |
 | Publication | Preflight compatibility check, tracked request receipt and exact-deployment status read | Deploy and verify compatible core support and a real production deployment; a request or an old app URL is not publication proof |
+
+Live provisioning requires `GET /api/v1/partner/creators/capabilities` to report `creator_identity.version: 1`, `creator_identity.key_recovery: "compare_and_swap"` and exactly `creator_identity.onboarding_profile: "api_creator_paid_v1"`. A missing or incompatible value blocks creation. The starter sends `expected_onboarding_profile: "api_creator_paid_v1"` with its provisioning request so core can reject a configuration mismatch before creating a workspace. This is an assertion of the authenticated partner's existing configuration, **not a way for the browser or starter to select or change billing policy**. See [CUSTOMER_AUTH.md](CUSTOMER_AUTH.md#core-api-and-billing-requirements) for the complete contract.
 
 The core creator-pack feature gate defaults to OFF. The starter exposes checkout only when the reviewed backend explicitly advertises the exact supported version as available for that creator. Neither a generic catalog endpoint nor an older checkout route is a fallback.
 

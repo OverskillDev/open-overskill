@@ -1,6 +1,6 @@
 # Customer authentication and durable workspaces
 
-The `/workspace` reference is the primary customer flow: sign in, provision a workspace, create or reopen an app, edit, preview, request publication and, when the compatible core contract is enabled, buy an existing credit pack. Its accounts are separate from the older `/builder` operator sandbox. The customer APIs run on Node, persist identity, app metadata and purchase transport records to SQLite, and retain each creator key on the server. They do not create another credit ledger.
+The `/workspace` reference is the primary customer flow: **account → isolated workspace → credits → build**. Customers verify their account, create a workspace, fund it with an existing credit pack when needed, then create or reopen apps, edit, preview and request publication. Stage-one live onboarding starts new creator workspaces with zero free credits. Existing balances stay intact; customers with available credits do not have to buy another pack. Its accounts are separate from the older `/builder` operator sandbox. The customer APIs run on Node, persist identity, app metadata and purchase transport records to SQLite, and retain each creator key on the server. They do not create another credit ledger.
 
 ## Local demonstration
 
@@ -49,9 +49,38 @@ Passing means the inspected local configuration is shaped correctly. It does not
 
 The shared API adapter needs approved server-side partner credentials, `OVERSKILL_LIVE_ENABLED=1`, and a server-side `OPEN_OVERSKILL_OPERATOR_TOKEN` of at least 32 characters. This token is a compatibility requirement of the shared live guard; customer authentication uses the OIDC session. `/workspace` gets the verified email and immutable creator ID from its authenticated record, so the original operator fixture variables do not select its customer or payer.
 
-Before it creates a live creator workspace, the adapter reads the core stable-identity capability. A missing or incompatible contract blocks creation. Core support for that identity mapping and the gross-usage/current-balance meter must be deployed and verified for the intended pilot. A local capability fixture does not establish live support.
+Before creating a live creator workspace, the adapter reads `GET /api/v1/partner/creators/capabilities`. It requires these exact fields:
+
+```json
+{
+  "creator_identity": {
+    "version": 1,
+    "key_recovery": "compare_and_swap",
+    "onboarding_profile": "api_creator_paid_v1"
+  }
+}
+```
+
+Stable identity and compare-and-swap key recovery remain required alongside the onboarding profile. A missing, failed or incompatible capability response blocks provisioning before any creation request. The authenticated partner must already be configured by core for `api_creator_paid_v1`; no customer input, sign-in or starter environment setting grants that configuration.
+
+The provisioning request to `POST /api/v1/partner/teams` carries `expected_onboarding_profile: "api_creator_paid_v1"` alongside the server-derived verified email and immutable external creator ID. This field is an **assertion, not a policy selector**. Core must compare it with the authenticated partner's current configuration under the provisioning lock and reject a mismatch before creation. The earlier capability read alone is not sufficient if configuration changes before the POST.
+
+This onboarding contract starts new live creator workspaces with zero free credits; it must not reset, transfer or replace an existing customer's balance. Workspace creation itself does not purchase a pack. Core support for stable identity, this onboarding profile and the gross-usage/current-balance meter must be deployed and verified for the intended pilot. A local capability fixture does not establish live support.
 
 Each customer's app operations use that customer's creator key and Overskill Team. Generation debits that workspace under existing core billing settings. The reference supports existing-pack checkout and purchase-status reconciliation through the gated creator-bound core contract described below. Payment fulfillment, refund handling and balance accounting remain in Overskill's existing core services. The reference does not automatically enroll merchants, create affiliate arrangements or move usage to the operator's wallet.
+
+### Funding before a build
+
+The customer UI and server use the same funding classification. Before saving app state or dispatching generation, the server checks the authenticated creator's current credit snapshot:
+
+| Observed funding | Customer behavior | Generation response |
+| --- | --- | --- |
+| Known zero or negative balance | Offer the existing canonical Overskill packs | `402 credits_required`; no build requested |
+| Positive balance fully reserved for other work | Refresh after that work changes state; do not assume a new purchase is needed | `409 credits_reserved`; no build requested |
+| Unavailable balance or unknown available-after-holds metric | Show unavailable and refresh; never display it as zero | `503 credits_unavailable`; no build requested |
+| Positive available balance, or a positive supported legacy balance | Continue to the builder without another purchase | Core still decides whether each specific build can be admitted |
+
+The legacy balance is partial and does not report pending holds. A ready UI state is not a quote, sufficient-funds guarantee, spending cap or substitute for core's billing enforcement. A reservation may ultimately be consumed; its completion does not guarantee that credits will become available. Existing billing settings continue to apply. The local demo's fictional balance is clearly labeled and never funds real work.
 
 Publication remains a separate compatibility and acceptance gate. The customer adapter requires the `request-v1` deployment-tracking capability before dispatch, records the tracked deployment ID and must see that exact deployment reported as deployed in production, with a production URL, before it says **Published**. Deploy and verify that compatible contract against core before enabling a hosted pilot; sign-in or a prior production URL cannot substitute for it.
 

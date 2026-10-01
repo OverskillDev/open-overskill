@@ -11,9 +11,11 @@ import { builderConfig } from "@/lib/builder-config";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PreviewPanel, safePreviewUrl } from "@/components/builder/PreviewPanel";
 import { CreditAccountNotice } from "@/components/builder/CreditAccountNotice";
-import { hasUsableCreditSnapshot, type CreditAccountSnapshot } from "@/lib/credit-account";
+import { workspaceFundingState, type CreditAccountSnapshot } from "@/lib/credit-account";
 import type { ChatMessage, StatusResponse } from "@/lib/types";
 import styles from "./workspace.module.css";
+
+type WorkspaceFundingState = ReturnType<typeof workspaceFundingState> | "checking";
 
 type Customer = { id: string; name: string; email: string; simulated: boolean };
 type Identity = { authenticated: boolean; user?: Customer; loginAvailable: boolean; demoAvailable: boolean };
@@ -290,7 +292,7 @@ export function Workspace() {
   async function generate(event: FormEvent) {
     event.preventDefault();
     const text = (activeApp ? editPrompt : prompt).trim();
-    if (!text || writePending.current || isBuilding || uncertainWrite || reviewRequired) return;
+    if (!text || writePending.current || isBuilding || !canGenerate) return;
     writePending.current = true; setAction("generate"); setError(""); setPollError("");
     try {
       const { app } = await request<{ app: WorkspaceApp }>("/api/workspace/generate", { prompt: text, ...(activeApp ? { appId: activeApp.id } : {}) }, undefined, workspace?.user.id);
@@ -350,7 +352,10 @@ export function Workspace() {
 
   function dashboard() { selectionRef.current += 1; setActiveApp(null); setView("apps"); setEditPrompt(""); setError(""); setPollError(""); setAppLoading(false); }
   const demo = workspace?.mode === "demo";
-  const canGenerate = Boolean(workspace?.provisioned && !uncertainWrite && !reviewRequired && !creditLoading && !creditError && hasUsableCreditSnapshot(account));
+  const funding: WorkspaceFundingState = creditLoading ? "checking" : creditError || (!demo && account?.balance.status === "simulated") ? "unknown" : workspaceFundingState(account);
+  const canGenerate = Boolean(workspace?.provisioned && !uncertainWrite && !reviewRequired && funding === "ready");
+  const firstApp = Boolean(workspace && workspace.apps.length === 0);
+  const showCredits = view === "credits" || (firstApp && !activeApp && funding !== "ready" && !(creditLoading && workspaceFundingState(account) === "ready"));
   const busy = Boolean(action);
   const customerName = workspace?.user.name?.split(" ")[0] || "there";
   const previewUrl = activeApp?.status?.app?.preview_url;
@@ -359,20 +364,23 @@ export function Workspace() {
   const checkoutUrl = purchase?.checkoutState === "open" && !purchase.creditsGranted && !purchaseReadUnavailable ? safeCheckoutUrl(purchase.checkoutUrl) : null;
   const canBuyPack = Boolean(!demo && packs?.checkoutAvailable && !packs.simulated && purchaseLoaded && !purchaseLoading && !purchaseError && !purchasePending && !purchaseReadUnavailable && !busy);
 
+  function showAccount() { selectionRef.current += 1; setView("credits"); setActiveApp(null); setError(""); }
+
   return <main className={styles.shell}>
     <a href="#workspace-main" className={styles.skipLink}>Skip to workspace</a>
     <header className={styles.header}>
       <a href="/" className={styles.logo} aria-label={`${builderConfig.name} home`}><BrandMark size={30} /><span><BrandName lightClassName={styles.logoLight} /></span></a>
       <span className={styles.headerLabel}>THE REFERENCE BUILDER</span>
-      <div className={styles.headerActions}><a href="/guide" className={styles.guideLink}>Build your own <ArrowUpRight size={14} /></a><ThemeToggle /></div>
+      <div className={styles.headerActions}><a href="/guide" className={styles.guideLink}>API & setup <ArrowUpRight size={14} /></a><ThemeToggle /></div>
     </header>
 
     {loading ? <div className={styles.loading} id="workspace-main" role="status"><Loader2 size={22} className={styles.spinner} /><h1>Opening your workspace</h1><p>Finding your apps and account.</p></div>
       : !workspace ? <section className={styles.signIn} id="workspace-main">
         <div className={styles.signInStory}>
-          <span className={styles.eyebrow}><span /> FROM YOUR FIRST IDEA TO YOUR NEXT APP</span>
+          <span className={styles.eyebrow}><span /> YOUR BUILDER. YOUR WORKSPACE.</span>
           <h1>Build software<br />with words.</h1>
-          <p>A place for your ideas to become working apps. Describe what you need, shape the details, and make it yours.</p>
+          <p>Start with your own workspace. Add Overskill credits when you’re ready, then build, edit and publish your apps here.</p>
+          <OnboardingProgress step={0} demo={Boolean(identity?.demoAvailable && !identity?.loginAvailable)} />
           <div className={styles.productSketch} aria-hidden="true">
             <div className={styles.sketchToolbar}><span /><span /><span /><small>YOUR NEXT IDEA</small></div>
             <div className={styles.sketchPrompt}><Sparkles size={17} /> A client portal that feels like our brand.</div>
@@ -383,9 +391,9 @@ export function Workspace() {
         </div>
         <div className={styles.signInCard}>
           <div className={styles.cardIcon}><UserRound size={23} /></div>
-          <h2>Your ideas live here.</h2><p>Sign in to create apps and pick up where you left off.</p>
+          <h2>Start with your account.</h2><p>Sign in or create an account with this builder’s secure sign-in provider. Your apps and credits stay in your own workspace.</p>
           {error && <ErrorNotice message={error} onRefresh={() => void load()} />}
-          {identity?.loginAvailable ? <a className={styles.primaryButton} href="/api/customer/login">Continue to sign in <ArrowRight size={16} /></a> : <div className={styles.availabilityNote}>Customer sign-in is not connected in this installation yet.</div>}
+          {identity?.loginAvailable ? <a className={styles.primaryButton} href="/api/customer/login">Continue securely <ArrowRight size={16} /></a> : <div className={styles.availabilityNote}>Customer sign-in is not connected in this installation yet.</div>}
           {identity?.demoAvailable && <>
             <div className={styles.divider}><span>EXPLORE THE LOCAL DEMO</span></div>
             <div className={styles.personas}>
@@ -395,7 +403,8 @@ export function Workspace() {
             <p className={styles.demoFootnote}>Demo apps are saved locally for each persona. Generation, credits and publishing are simulated. No payments or provider calls.</p>
           </>}
           {!identity && !error && <button className={styles.secondaryButton} onClick={() => void load()}>Refresh sign-in options</button>}
-          <div className={styles.accountPromise}><ShieldCheck size={16} /><span>Your apps belong in your own workspace.</span></div>
+          <div className={styles.accountPromise}><ShieldCheck size={16} /><span>New live workspaces start with 0 credits. Choose an existing Overskill pack after signing in.</span></div>
+          <a className={styles.integratorLink} href="/guide"><Code2 size={15} /><span>Launching your own builder or integrating the API?<strong>Open the operator setup guide <ArrowUpRight size={13} /></strong></span></a>
         </div>
       </section> : <>
         {demo && <div className={styles.demoBanner}><span className={styles.demoTag}>LOCAL DEMO</span><span>Fictional customers. Saved demo apps. No real generation, payments or publication.</span></div>}
@@ -404,25 +413,37 @@ export function Workspace() {
             <div className={styles.customer}><span className={styles.customerAvatar}>{customerName[0]?.toUpperCase()}</span><div><strong>{workspace.user.name}</strong><span>{demo ? "Demo workspace" : "Personal workspace"}</span></div></div>
             <button className={styles.newButton} onClick={dashboard} disabled={busy}><Plus size={17} /> New app</button>
             <nav className={styles.navigation} aria-label="Workspace">
-              <button aria-current={view === "apps" ? "page" : undefined} onClick={dashboard} disabled={busy}><LayoutGrid size={17} /> Your apps <span>{workspace.apps.length}</span></button>
-              <button aria-current={view === "credits" ? "page" : undefined} onClick={() => { selectionRef.current += 1; setView("credits"); setActiveApp(null); setError(""); }} disabled={busy}><Coins size={17} /> Credits & account</button>
+              <button aria-current={!showCredits ? "page" : undefined} onClick={dashboard} disabled={busy}><LayoutGrid size={17} /> Your apps <span>{workspace.apps.length}</span></button>
+              <button aria-current={showCredits ? "page" : undefined} onClick={showAccount} disabled={busy}><Coins size={17} /> Credits & account</button>
             </nav>
             <div className={styles.sidebarBottom}>
-              <div className={styles.balanceCard}><span>{demo ? "DEMO BALANCE" : "WORKSPACE BALANCE"}</span><strong>{creditLoading ? "Reading…" : account?.balance.credits == null || creditError ? "Unavailable" : account.balance.credits.toLocaleString()}<small>{!creditLoading && account?.balance.credits != null && !creditError ? " credits" : ""}</small></strong><button onClick={() => { setView("credits"); setActiveApp(null); }} disabled={busy}>View account <ArrowRight size={13} /></button></div>
+              <div className={styles.balanceCard}><span>{demo ? "DEMO BALANCE" : "WORKSPACE BALANCE"}</span><strong>{creditLoading ? "Reading…" : account?.balance.credits == null || creditError ? "Unavailable" : account.balance.credits.toLocaleString()}<small>{!creditLoading && account?.balance.credits != null && !creditError ? " credits" : ""}</small></strong><button onClick={showAccount} disabled={busy}>View account <ArrowRight size={13} /></button></div>
               <button className={styles.signOut} onClick={() => void sessionAction("logout")} disabled={busy}>{action === "logout" ? <Loader2 size={15} className={styles.spinner} /> : <LogOut size={15} />} Sign out</button>
             </div>
           </aside>
 
           <section className={styles.main} id="workspace-main">
             {error && <ErrorNotice message={error} onRefresh={() => { if (activeApp) void openApp(activeApp); else void load(); }} />}
+            {firstApp && <div className={styles.onboardingRail}><OnboardingProgress step={!workspace.provisioned ? 1 : funding === "ready" ? 3 : 2} demo={demo} /></div>}
             {!workspace.provisioned ? <div className={styles.onboarding}>
-              <span className={styles.cardIcon}><Folder size={24} /></span><span className={styles.eyebrow}>ONE SMALL STEP</span>
-              <h1>Make room for your ideas.</h1><p>Create your {demo ? "demo " : ""}workspace to start building. Your apps, build conversations and credits will stay together here.</p>
+              <span className={styles.cardIcon}><Folder size={24} /></span><span className={styles.eyebrow}>YOUR ACCOUNT IS READY</span>
+              <h1>Create your app workspace.</h1><p>A private space for your apps, build conversations and credits. You’ll return here whenever you sign in.</p>
+              <div className={styles.verifiedAccount}><ShieldCheck size={16} /><span>{demo ? "Fictional demo account" : "Verified account"}<strong>{workspace.user.email}</strong></span></div>
               <button className={styles.primaryButton} onClick={() => void provision()} disabled={busy}>{action === "provision" ? <Loader2 size={17} className={styles.spinner} /> : <Plus size={17} />} {action === "provision" ? "Creating workspace…" : `Create ${demo ? "demo " : ""}workspace`}</button>
-              {demo && <small>This creates local demo data only.</small>}
-            </div> : view === "credits" ? <div className={styles.accountPage}>
-              <span className={styles.eyebrow}>YOUR WORKSPACE</span><h1>Credits & account</h1><p className={styles.pageDescription}>Credits for the apps you build here. Everything stays with your workspace.</p>
-              <div className={styles.accountGrid}><section className={styles.accountDetails}><CreditAccountNotice account={account} loading={creditLoading} error={creditError} demo={demo} provisioned={workspace.provisioned} disabled={busy} onRefresh={() => void refreshCredits()} /></section><section className={styles.identityCard}><ShieldCheck size={22} /><h2>Your account</h2><dl><div><dt>Name</dt><dd>{workspace.user.name}</dd></div><div><dt>Email</dt><dd>{workspace.user.email}</dd></div><div><dt>Workspace</dt><dd>{account?.creditAccount.teamId ? `#${account.creditAccount.teamId}` : "Not reported"}</dd></div></dl><p>Apps and access are tied to this signed-in account.</p></section></div>
+              <small>{demo ? "This creates local demo data with simulated credits only." : "New live workspaces start with 0 credits. Creating a workspace does not buy a pack."}</small>
+            </div> : showCredits && !activeApp ? <div className={styles.accountPage}>
+              <span className={styles.eyebrow}>{firstApp ? "YOUR WORKSPACE IS READY" : "YOUR WORKSPACE"}</span><h1>{firstApp ? funding === "ready" ? "You’re ready to build." : funding === "empty" ? purchasePending ? "Finish your credit purchase." : "Add credits. Bring your idea to life." : funding === "reserved" ? "Your credits are in use." : "Let’s check your credits." : "Credits & account"}</h1>
+              <p className={styles.pageDescription}>{firstApp ? funding === "ready" ? "Your existing workspace balance is available. You can continue without buying another pack." : funding === "empty" ? "Choose an existing Overskill pack for this workspace. Once payment is confirmed and credits are available, you can build your first app." : funding === "reserved" ? "Credits are reserved for work already in progress. Refresh after it finishes to see what remains available." : "Your balance is not available yet. We’ll keep your workspace here while you refresh its status." : "Credits for the apps you build here. Everything stays with your workspace."}</p>
+              {funding === "ready" && <button className={styles.continueBuilding} onClick={dashboard} disabled={busy}>{firstApp ? "Build your first app" : "Back to your apps"}<ArrowRight size={16} /></button>}
+              <div className={styles.accountGrid}><section className={styles.accountDetails}>
+                {firstApp ? <>
+                  <h2 className={styles.creditSummaryTitle}>{demo ? "Simulated demo balance" : "Your workspace balance"}</h2>
+                  <div className={styles.creditSummaryBalance} aria-live="polite">{creditLoading ? "Reading…" : funding === "unknown" ? "Unavailable" : <>{account?.balance.credits?.toLocaleString()} <small>credits</small></>}</div>
+                  <p className={styles.creditSummaryNote}>{demo ? "Demo credits have no cash value and cannot fund live builds." : funding === "reserved" ? "This balance is reserved for work in progress." : "Credits stay with this workspace and fund its builds and edits."}</p>
+                  <button className={styles.creditRefresh} onClick={() => void refreshCredits()} disabled={busy || creditLoading}><RefreshCw size={13} className={creditLoading ? styles.spinner : undefined} />{creditLoading ? "Reading credits…" : "Refresh balance"}</button>
+                  <details className={styles.creditDetails}><summary>Usage and billing details</summary><CreditAccountNotice account={account} loading={creditLoading} error={creditError} demo={demo} provisioned={workspace.provisioned} disabled={busy} onRefresh={() => void refreshCredits()} /></details>
+                </> : <CreditAccountNotice account={account} loading={creditLoading} error={creditError} demo={demo} provisioned={workspace.provisioned} disabled={busy} onRefresh={() => void refreshCredits()} />}
+              </section><section className={styles.identityCard}><ShieldCheck size={22} /><h2>Your account</h2><dl><div><dt>Name</dt><dd>{workspace.user.name}</dd></div><div><dt>Email</dt><dd>{workspace.user.email}</dd></div><div><dt>Workspace</dt><dd>{demo ? "Isolated demo workspace" : "Your isolated app workspace"}</dd></div></dl><p>Apps and access are tied to this signed-in account.</p></section></div>
               {!demo && (purchase || purchaseUncertain || purchaseError || !purchaseLoaded) && <section className={styles.purchaseCard} aria-labelledby="purchase-heading">
                 <div className={styles.purchaseHeading}><span className={styles.packIcon}><Coins size={21} /></span><div><span className={styles.eyebrow}>LATEST CREDIT-PACK PURCHASE</span><h2 id="purchase-heading">{action.startsWith("purchase:") ? "Preparing your checkout" : purchaseReadUnavailable ? "Purchase status unavailable" : purchaseLabel(purchase)}</h2></div>{purchaseLoading && <Loader2 size={17} className={styles.spinner} aria-label="Refreshing purchase" />}</div>
                 <div aria-live="polite" aria-atomic="true">
@@ -440,7 +461,7 @@ export function Workspace() {
                 <div className={styles.purchaseActions}>{checkoutUrl && <a className={styles.primaryButton} href={checkoutUrl} target="_blank" rel="noopener noreferrer">Continue on Whop <ArrowUpRight size={15} /></a>}<button className={styles.secondaryButton} onClick={() => void checkPurchase()} disabled={busy || purchaseLoading}><RefreshCw size={14} className={purchaseLoading ? styles.spinner : undefined} />Refresh purchase</button></div>
                 {purchase?.checkoutState === "open" && !purchase.creditsGranted && !checkoutUrl && <p className={styles.purchaseFootnote}>A valid Whop checkout link is not available yet. Refresh this purchase to check again.</p>}
               </section>}
-              <div className={styles.sectionHeading}><div><h2>Credit packs</h2><p>{packs?.simulated ? "This demo uses a simulated balance. No purchase is needed." : "Existing Overskill packs, when available to this workspace."}</p></div><button className={styles.iconButton} aria-label="Refresh credit packs" onClick={() => void refreshPacks()} disabled={busy}><RefreshCw size={16} /></button></div>
+              <div className={styles.sectionHeading} id="credit-packs"><div><h2>Credit packs</h2><p>{packs?.simulated ? "This demo uses a simulated balance. No purchase is needed." : "One-time packs from Overskill. Choose the amount that fits your next build."}</p></div><button className={styles.iconButton} aria-label="Refresh credit packs" onClick={() => void refreshPacks()} disabled={busy}><RefreshCw size={16} /></button></div>
               {packsError && <ErrorNotice message={packsError} onRefresh={() => void refreshPacks()} />}
               {packs && <div className={styles.packGrid}>{packs.packs.map(pack => <article className={styles.packCard} key={pack.id}><span className={styles.packIcon}><Coins size={20} /></span><h3>{pack.name}</h3><strong>{pack.credits.toLocaleString()} <small>credits</small></strong><p>{pack.description || "Credits for building and editing apps."}</p>{!demo && !packs.simulated && <div className={styles.packPrice}>{money(pack)}</div>}<button className={canBuyPack ? styles.primaryButton : styles.secondaryButton} onClick={() => void buyPack(pack)} disabled={!canBuyPack}>{action === `purchase:${pack.id}` && <Loader2 size={14} className={styles.spinner} />}{demo || packs.simulated ? "Demo · no purchase" : action === `purchase:${pack.id}` ? "Preparing checkout…" : !packs.checkoutAvailable ? "Checkout not connected" : purchaseReadUnavailable ? "Refresh purchase first" : purchasePending ? "Check current purchase" : "Buy existing pack"}</button></article>)}</div>}
               {packs?.packs.length === 0 && <div className={styles.emptyPacks}><Coins size={25} /><div><h3>{packs.simulated ? "Try the builder with demo credits." : "No packs are available to this workspace yet."}</h3><p>{packs.simulated ? "The live builder will display the existing Overskill catalog here. Demo credits have no cash value." : "Refresh later to check the catalog. Your existing balance is shown above."}</p></div></div>}
@@ -457,12 +478,13 @@ export function Workspace() {
                   {isBuilding && <div className={styles.buildProgress} role="status"><Loader2 size={16} className={styles.spinner} /><span>{activeApp.status?.message || "Your app is taking shape…"}</span></div>}
                 </div>
                 <form className={styles.editComposer} onSubmit={generate}><label htmlFor="edit-prompt">What would you like to change?</label><textarea id="edit-prompt" value={editPrompt} onChange={event => setEditPrompt(event.target.value)} placeholder="Add a contact form and make the header green…" maxLength={12000} rows={3} disabled={busy || isBuilding || appLoading} /><div><span>{demo ? "Simulated edit" : "Uses workspace credits"}</span><button aria-label="Send app changes" type="submit" disabled={!editPrompt.trim() || busy || isBuilding || appLoading || !canGenerate}>{action === "generate" ? <Loader2 size={17} className={styles.spinner} /> : <ArrowUp size={17} />}</button></div></form>
-                {!canGenerate && !creditLoading && <div className={styles.inlineNote}>{reviewRequired ? <>An earlier request needs review before another build. <button onClick={() => void openApp(reviewRequired)} disabled={busy}>Review app</button></> : uncertainWrite ? <>Check the latest app state before sending another request. <button onClick={() => void openApp(activeApp)} disabled={busy}>Refresh app</button></> : <>Builds are paused while credits are unavailable. <button onClick={() => void refreshCredits()} disabled={busy}>Refresh credits</button></>}</div>}
+                {!canGenerate && !creditLoading && <div className={styles.inlineNote}>{reviewRequired ? <>An earlier request needs review before another build. <button onClick={() => void openApp(reviewRequired)} disabled={busy}>Review app</button></> : uncertainWrite ? <>Check the latest app state before sending another request. <button onClick={() => void openApp(activeApp)} disabled={busy}>Refresh app</button></> : <FundingNextStep funding={funding} disabled={busy} onAccount={showAccount} onRefresh={() => void refreshCredits()} />}</div>}
               </section><div className={styles.preview}><PreviewPanel url={previewUrl} busy={isBuilding || action === "generate"} demo={demo} /></div></div>
             </div> : <div className={styles.dashboard}>
-              <div className={styles.welcome}><span className={styles.eyebrow}>YOUR IDEAS START HERE</span><h1>What will you build, {customerName}?</h1><p>Describe it. Shape it. Make it yours.</p></div>
+              {firstApp && funding === "ready" && <div className={styles.readyNotice}><Check size={17} /><span>{demo ? "Your simulated demo credits are ready. No purchase needed." : "Your workspace has credits. You can build without buying another pack."}</span></div>}
+              <div className={styles.welcome}><span className={styles.eyebrow}>{firstApp ? "BUILD YOUR FIRST APP" : "YOUR IDEAS START HERE"}</span><h1>What will you build, {customerName}?</h1><p>Describe it. Shape it. Make it yours.</p></div>
               <form className={styles.newComposer} onSubmit={generate}><label className={styles.visuallyHidden} htmlFor="new-app-prompt">Describe your new app</label><textarea ref={promptRef} id="new-app-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="An app for my business that…" rows={3} maxLength={12000} disabled={busy} /><div className={styles.composerFooter}><span><Sparkles size={14} />{demo ? "Local demo · simulated generation" : "Powered by Overskill"}</span><button className={styles.primaryButton} type="submit" disabled={!prompt.trim() || busy || !canGenerate}>{action === "generate" ? <Loader2 size={16} className={styles.spinner} /> : <ArrowUp size={16} />}{action === "generate" ? "Starting…" : "Build app"}</button></div></form>
-              {!canGenerate && <div className={styles.inlineNote}>{creditLoading ? "Checking your workspace credits…" : <>{reviewRequired ? <>An earlier request needs review before another build. <button onClick={() => void openApp(reviewRequired)} disabled={busy}>Review app</button></> : uncertainWrite ? <>Check the latest workspace state before sending another request. <button onClick={() => void load()} disabled={busy}>Refresh workspace</button></> : <>Builds are paused until your credit balance is available. <button onClick={() => void refreshCredits()} disabled={busy}>Refresh credits</button></>}</>}</div>}
+              {!canGenerate && <div className={styles.inlineNote}>{creditLoading ? "Checking your workspace credits…" : <>{reviewRequired ? <>An earlier request needs review before another build. <button onClick={() => void openApp(reviewRequired)} disabled={busy}>Review app</button></> : uncertainWrite ? <>Check the latest workspace state before sending another request. <button onClick={() => void load()} disabled={busy}>Refresh workspace</button></> : <FundingNextStep funding={funding} disabled={busy} onAccount={showAccount} onRefresh={() => void refreshCredits()} />}</>}</div>}
               <div className={styles.ideas}>{ideas.map(idea => <button key={idea.title} onClick={() => { setPrompt(idea.prompt); promptRef.current?.focus(); }} disabled={busy}><idea.icon size={14} />{idea.title}<Plus size={13} /></button>)}</div>
               <div className={styles.sectionHeading}><div><h2>Your apps <span>{workspace.apps.length}</span></h2><p>Come back to an idea and keep going.</p></div><button className={styles.iconButton} aria-label="Refresh saved apps" onClick={() => void load()} disabled={busy}><RefreshCw size={16} /></button></div>
               {workspace.apps.length ? <div className={styles.appsGrid}>{workspace.apps.map((app, index) => <button className={styles.appCard} key={app.id} onClick={() => void openApp(app)} disabled={busy}><div className={styles.appArtwork} data-tone={index % 3}><div className={styles.artworkWindow}><div><span /><span /><span /></div><Globe2 size={28} /><span /><span /></div><span className={styles.appOpen}>Open app <ArrowUpRight size={15} /></span></div><div className={styles.appCardBody}><div><h3>{app.name}</h3><ArrowUpRight size={16} /></div><p>{app.prompt}</p><div><span className={styles.statusPill}>{appStatus(app)}</span><time dateTime={app.updatedAt}>{relativeDate(app.updatedAt)}</time></div></div></button>)}</div> : <div className={styles.emptyApps}><div><Folder size={23} /></div><h3>Your next idea belongs here.</h3><p>Build your first app above. It will be saved here so you can return, edit and publish.</p></div>}
@@ -481,4 +503,16 @@ function ErrorNotice({ message, onRefresh }: { message: string; onRefresh: () =>
 function Message({ message, busy }: { message: ChatMessage; busy: boolean }) {
   const user = message.role === "user";
   return <article className={user ? styles.userMessage : styles.assistantMessage}><span>{user ? "YOU" : "OVERSKILL"}</span>{message.content && <p>{message.content}</p>}{message.flow?.map((block, index) => block.type === "message" ? block.content !== message.content && <p key={index}>{block.content}</p> : <div key={index} className={styles.tools}>{block.tools?.map((tool, toolIndex) => <span key={toolIndex}>{["completed", "complete"].includes(tool.status || "") ? <Check size={12} /> : tool.status === "running" && busy ? <Loader2 size={12} className={styles.spinner} /> : <Circle size={10} />}{tool.name?.replaceAll("_", " ") || "Build step"}</span>)}</div>)}</article>;
+}
+
+function OnboardingProgress({ step, demo }: { step: number; demo: boolean }) {
+  return <ol className={styles.setupSteps} aria-label={demo ? "Demo setup progress" : "Builder setup progress"}>
+    {["Account", "Workspace", demo ? "Demo credits" : "Credits", "Build"].map((label, index) => <li key={label} data-complete={index < step} aria-current={index === step ? "step" : undefined}><span aria-hidden="true">{index < step ? <Check size={12} /> : index + 1}</span><strong>{label}</strong>{index < step && <span className={styles.visuallyHidden}>Complete</span>}</li>)}
+  </ol>;
+}
+
+function FundingNextStep({ funding, disabled, onAccount, onRefresh }: { funding: WorkspaceFundingState; disabled: boolean; onAccount: () => void; onRefresh: () => void }) {
+  if (funding === "empty") return <>Your workspace needs credits before the next build. <button onClick={onAccount} disabled={disabled}>View existing credit packs</button></>;
+  if (funding === "reserved") return <>Your credits are reserved for work in progress. <button onClick={onRefresh} disabled={disabled}>Refresh credits</button></>;
+  return <>Builds are paused while your credit balance is unavailable. <button onClick={onRefresh} disabled={disabled}>Refresh credits</button></>;
 }
