@@ -1,3 +1,12 @@
+import { builderConfig } from "@/lib/builder-config";
+
+// Retain the reference wordmark by default; every custom name renders as text.
+export function BrandName({ lightClassName }: { lightClassName?: string }) {
+  return builderConfig.name === "Open Overskill"
+    ? <>open<span className={lightClassName}>overskill</span></>
+    : <>{builderConfig.name}</>;
+}
+
 export function BrandMark({ size = 32 }: { size?: number }) {
   return (
     <span

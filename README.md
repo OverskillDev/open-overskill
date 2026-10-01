@@ -51,7 +51,7 @@ See [CUSTOMER_AUTH.md](CUSTOMER_AUTH.md) for verified sign-in, storage, sessions
 | Customer dashboard, account pane, and app editor | `components/workspace/Workspace.tsx` |
 | Customer layout, theme treatment, and motion | `components/workspace/workspace.module.css` |
 | Shared theme and original builder styles | `app/globals.css` |
-| Original studio name and public links | `lib/builder-config.ts` |
+| Shared brand name, original studio label, page metadata and public docs link | `lib/builder-config.ts` |
 | Original operator fixture and starter prompts | `lib/creator-context.ts` |
 | Shared preview component | `components/builder/PreviewPanel.tsx` |
 | Verified customer identity and sessions | `lib/customer-auth.ts` |
@@ -60,7 +60,9 @@ See [CUSTOMER_AUTH.md](CUSTOMER_AUTH.md) for verified sign-in, storage, sessions
 | Customer purchase transport journal and reconciliation | `lib/customer-purchases.ts` |
 | Server-to-server Overskill API adapter | `lib/overskill.ts` |
 
-The customer UI currently contains its own reference brand text and starter ideas. Changing `builder-config.ts` alone does not rebrand every screen. Replace fictional content with authorized customer data before offering a real service.
+Edit `builderConfig` in `lib/builder-config.ts` to set one installation's public `name`, original sandbox `studioName` label, `tagline`, metadata `description` and header `docsUrl`. The name is shared by the customer and original headers, homepage footer and page titles; the default retains the Open Overskill wordmark. Rebuild the app after changing this source configuration. Starter ideas, product copy, colors and the generic code mark remain editable in their own components/styles; this is not a runtime theme or tenant-management system.
+
+These settings are public, so never add credentials or private commercial terms. A custom name may appear in app attribution as a display name; it does not change the server's partner slug, customer identity, creator workspace, API destination or payer. Managed **Powered by Overskill** attribution and its `overskillLinks` remain separate from the operator's brand and documentation link. Replace fictional content with authorized customer data before offering a real service.
 
 ## Identity, apps, and billing
 

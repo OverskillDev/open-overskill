@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { overskillLinks } from "@/lib/builder-config";
+export const metadata = { title: "Quickstart" };
 export default function GuidePage() {
   return (
     <>
@@ -13,27 +15,27 @@ export default function GuidePage() {
           <span>Then make it yours.</span>
         </h1>
         <p className="guide-lead">
-          Start with the complete builder or bring individual components into
-          your product. Both connect to the same managed Overskill API.
+          Start with a customer workspace, make the interface yours, and
+          connect it to the managed Overskill API.
         </p>
         <section>
           <h2>01 / Run the starter</h2>
           <p>
-            From your pilot checkout, install the dependencies and start the
-            local server. Demo mode simulates generation and deployment without
-            spending credits.
+            Use Node 22.23 or newer. Install the dependencies and start the
+            local server. Demo mode uses fictional customers and simulates
+            generation, credits and publication without provider calls.
           </p>
           <pre>
-            <code>{"npm ci\nnpm run setup\nnpm run doctor\nnpm run dev\n# Open http://localhost:3577"}</code>
+            <code>{"npm ci\nnpm run setup\nnpm run doctor -- --customer\nnpm run dev\n# Open http://127.0.0.1:3577/workspace"}</code>
           </pre>
           <p>
-            Setup creates your local configuration in demo mode and keeps any
-            existing configuration. Doctor checks readiness without calling
-            Overskill or spending credits. The demo is self-serve; live partner
-            access is currently arranged with the Overskill team.
+            Continue as Alice, create an app, edit it, and reopen it after
+            signing out. Bob has a separate workspace. App records persist in
+            the local SQLite store; previews use a fixed template. Use the exact
+            configured origin: localhost and 127.0.0.1 are different origins.
           </p>
-          <Link className="text-link" href="/builder">
-            Try the demo here <ArrowRight size={16} />
+          <Link className="text-link" href="/workspace">
+            Open the customer demo <ArrowRight size={16} />
           </Link>
         </section>
         <section>
@@ -41,15 +43,19 @@ export default function GuidePage() {
           <div className="guide-files">
             <div>
               <code>lib/builder-config.ts</code>
-              <span>Name and public links</span>
+              <span>Shared brand name, studio label, page metadata and public docs link</span>
             </div>
             <div>
               <code>app/globals.css</code>
               <span>Colors, typography, and motion</span>
             </div>
             <div>
-              <code>lib/creator-context.ts</code>
-              <span>Example customer brief and starter prompts</span>
+              <code>components/workspace/Workspace.tsx</code>
+              <span>Customer dashboard, account view and app editor</span>
+            </div>
+            <div>
+              <code>components/workspace/workspace.module.css</code>
+              <span>Customer layout and styling</span>
             </div>
             <div>
               <code>components/builder/</code>
@@ -57,16 +63,19 @@ export default function GuidePage() {
             </div>
           </div>
           <p>
-            The included creator is fictional. Replace the fixture with data
-            authorized for the signed-in creator before a multi-user rollout.
+            Change the public brand settings and rebuild. The shared name
+            appears in the headers, footer and page titles. Managed-service
+            attribution stays separate. Branding does not change partner
+            identity, customer ownership or the workspace that pays for a build.
           </p>
         </section>
         <section id="architecture">
           <h2>03 / Connect to Overskill</h2>
           <p>
             Your browser calls this starter’s server. The server holds the
-            partner key and a separate creator key; Overskill handles
-            generation, hosting, and credit enforcement.
+            partner key and each customer’s encrypted creator key. Each customer
+            has an isolated creator workspace; Overskill handles generation,
+            hosting and credit enforcement.
           </p>
           <div className="architecture-strip">
             <span>Your UI</span>
@@ -76,34 +85,38 @@ export default function GuidePage() {
             <span>Overskill API</span>
           </div>
           <p>
-            Partner access is provisioned with the Overskill team. Configure
-            your server-only environment, keep it bound to localhost, and unlock
-            the studio with your local operator token.
+            Live partner access is arranged with the Overskill team. Configure
+            a trusted OpenID Connect provider, a canonical HTTPS origin,
+            server-side encryption and persistent storage. Verified issuer and
+            subject identify each customer; matching email addresses do not
+            merge accounts. See CUSTOMER_AUTH.md and .env.example for the
+            server configuration.
           </p>
           <pre>
             <code>
               {
-                "OVERSKILL_MOCK=0\nOVERSKILL_LIVE_ENABLED=1\nOVERSKILL_API_BASE=https://www.overskill.com\nOVERSKILL_PARTNER_API_KEY=<partner-key>\nOPEN_OVERSKILL_OPERATOR_TOKEN=<random-32-or-more-characters>\nOVERSKILL_CREATOR_ID=<stable-internal-creator-id>\nOPEN_OVERSKILL_CREATOR_EMAIL=<your-pilot-creator-email>"
+                "npm run doctor -- --customer --production\nnpm run build"
               }
             </code>
           </pre>
           <p>
-            Use a stable internal creator ID from your own system, not an email
-            address or a new random value on each restart. The server checks
-            creator-identity support before creating a workspace; older backends
-            are refused. An existing workspace can require explicit key recovery,
-            which replaces its previous builder key before you submit a build.
+            Customer identity, app ownership and pending operations persist
+            across restart. The browser cannot select another customer’s
+            workspace or payer. The server checks compatible core contracts
+            before provisioning, checkout and publication. Keep API keys and
+            encryption material out of browser code and source releases.
           </p>
           <p>
-            Live calls can consume credits and create workspaces or deployments.
-            Live preview embedding requires an approved HTTPS partner origin;
-            use the external preview link when localhost embedding is blocked.
-            This local pilot uses expiring in-memory sessions; a server restart
-            clears the session. It is not a hosted multi-user service.
+            Host one Node process with persistent disk and a TLS reverse proxy.
+            The local doctor checks configuration and existing storage
+            permissions without contacting providers. It cannot verify a real
+            sign-in, payment or deployment. Preview embedding requires an
+            approved HTTPS partner origin; the external preview link is also
+            available.
           </p>
           <a
             className="text-link"
-            href="https://www.overskill.com/developers/partners"
+            href={overskillLinks.docsUrl}
           >
             Read the partner API contract <ArrowUpRight size={16} />
           </a>
@@ -111,9 +124,11 @@ export default function GuidePage() {
         <section id="components">
           <h2>Bring the pieces into your product</h2>
           <p>
-            Use the full Editor for the included build flow, or compose these
-            React elements with useBuilder in your own layout. They live in the
-            starter source today; there is no separate package to install.
+            The original local operator sandbox provides Editor and useBuilder
+            as a small composition example. These source components are useful
+            when integrating into an existing product. The customer reference
+            lives separately in components/workspace and uses its durable
+            customer routes. There is no separate package to install.
           </p>
           <div className="guide-files">
             <div><code>PromptComposer</code><span>Prompt, suggestions, submission and busy state</span></div>
@@ -127,27 +142,38 @@ export default function BuilderPage() {
   return <Editor />;
 }`}</code></pre>
           <p>
-            Keep the starter’s server routes and styles when using Editor.
-            Individual components only render the state you pass them; your
-            server handles authentication, creator scope, API requests, and
-            credit checks. See COMPONENTS.md in the checkout for the prop
-            contracts and integration map.
+            Keep the original server routes and styles when using Editor.
+            Its operator session is local and expires on restart. Individual
+            components render the state you pass them; your server handles
+            authentication, creator scope, API requests and credit checks.
+            See COMPONENTS.md for the prop contracts and integration map.
           </p>
           <Link className="text-link" href="/examples/minimal">
             Try the minimal composition <ArrowRight size={16} />
           </Link>
           <p>
-            Need help fitting the kit into an existing product? Implementation
-            support can be scoped during the pilot. A fully branded service
-            with custom onboarding is a separate partnership.
+            The customer workspace is the full reference for an agency or
+            standalone builder. An existing software platform can adapt the
+            interface and server integration to its own verified customer
+            identity and product experience.
           </p>
         </section>
         <section id="credits">
           <h2>Know which workspace uses credits</h2>
           <p>
-            Live builds use the creator workspace’s Overskill credits. Existing
-            workspace billing settings apply. Partner sponsorship is not supported
-            by this starter, and the demo’s example balance cannot fund live builds.
+            Stage one uses existing Overskill packs. Each customer’s builds use
+            that customer’s creator-workspace balance and existing billing
+            settings. Model access is managed by Overskill; customers do not
+            supply model API keys. Operator-funded usage, custom packs and
+            partner commissions are future possibilities.
+          </p>
+          <p>
+            On a compatible, explicitly enabled core backend, the account view
+            shows the creator’s available packs and an explicit Whop checkout
+            link. Overskill confirms payment, grants credits and handles
+            refunds. Returning from checkout does not prove payment. The
+            starter records purchase status for recovery; it does not maintain
+            a second credit ledger. The local demo creates no purchases.
           </p>
           <p>
             On a compatible backend, the read-only notice shows recorded gross
@@ -163,17 +189,20 @@ export default function BuilderPage() {
         <section>
           <h2>Before your first real customers</h2>
           <p>
-            Replace the local operator login with verified customer identity,
-            durable encrypted credential storage, workspace authorization,
-            quotas, and audit records. Confirm creator credit responsibility
-            with Overskill. Merchant onboarding is a separate step for enabling
-            payments; this starter does not manage it or collect payments.
+            Configure and verify the real identity provider, persistent host,
+            backups, rate limits and recovery procedure. Release the compatible
+            core contracts, agree the initial funding and spending limits, and
+            test actual sign-in, purchase, fulfillment, refund, generation and
+            publication. The hosted paid experience is pending those checks.
+            Merchant onboarding remains a separate rollout.
           </p>
           <p>
-            The intended open layer is the interface and integration code.
-            Overskill’s orchestration, prompts, runtime services, credit ledger,
-            and payment infrastructure remain managed. Public release and
-            license selection are pending.
+            The original exported interface and integration code have an MIT
+            license, with separate third-party notices. Publication of the
+            reviewed repository is pending. Overskill’s generation pipelines,
+            internal prompts, runtime services, credit ledger and payment
+            infrastructure remain managed services. The source license does
+            not grant access to private code or managed services.
           </p>
         </section>
       </main>

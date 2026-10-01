@@ -1,5 +1,7 @@
 # Compose a builder in your own interface
 
+This guide covers the original local operator sandbox at `/builder` and `/examples/minimal`. The complete customer reference is `/workspace`, implemented in `components/workspace/Workspace.tsx` with the durable `/api/workspace` routes. Its verified identity, persistent app ownership and checkout contract are described in [CUSTOMER_AUTH.md](CUSTOMER_AUTH.md). The operator hook below does not provide those customer services by itself.
+
 Use `useBuilder` to keep the starter's authenticated build flow while replacing its layout. The hook handles configuration, creator context, provisioning, explicit key recovery, credit-account snapshots, generation, polling, iteration, session errors and deploy requests. `components/Editor.tsx` composes the shipped UI from this same hook.
 
 `components/examples/MinimalBuilder.tsx` is a complete, typechecked example. Open `/examples/minimal` in the running starter to try its local unlock form, prompt, conversation, preview and deploy controls. The guide links to this route under Components. To use that composition in another page:

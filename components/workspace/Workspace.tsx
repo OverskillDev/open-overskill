@@ -6,7 +6,8 @@ import {
   CircleAlert, Code2, Coins, Folder, Globe2, LayoutGrid, Loader2, LogOut,
   MessageSquare, Plus, RefreshCw, Rocket, ShieldCheck, Sparkles, UserRound,
 } from "lucide-react";
-import { BrandMark } from "@/components/BrandMark";
+import { BrandMark, BrandName } from "@/components/BrandMark";
+import { builderConfig } from "@/lib/builder-config";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PreviewPanel, safePreviewUrl } from "@/components/builder/PreviewPanel";
 import { CreditAccountNotice } from "@/components/builder/CreditAccountNotice";
@@ -361,7 +362,7 @@ export function Workspace() {
   return <main className={styles.shell}>
     <a href="#workspace-main" className={styles.skipLink}>Skip to workspace</a>
     <header className={styles.header}>
-      <a href="/" className={styles.logo} aria-label="Open Overskill home"><BrandMark size={30} /><span>open<span className={styles.logoLight}>overskill</span></span></a>
+      <a href="/" className={styles.logo} aria-label={`${builderConfig.name} home`}><BrandMark size={30} /><span><BrandName lightClassName={styles.logoLight} /></span></a>
       <span className={styles.headerLabel}>THE REFERENCE BUILDER</span>
       <div className={styles.headerActions}><a href="/guide" className={styles.guideLink}>Build your own <ArrowUpRight size={14} /></a><ThemeToggle /></div>
     </header>

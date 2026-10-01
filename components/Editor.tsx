@@ -17,7 +17,7 @@ import { PromptComposer } from "./builder/PromptComposer";
 import { BuildTranscript } from "./builder/BuildTranscript";
 import { PreviewPanel } from "./builder/PreviewPanel";
 import { CreditAccountNotice, CreatorAccessRecovery } from "./builder/CreditAccountNotice";
-import { builderConfig } from "@/lib/builder-config";
+import { builderConfig, overskillLinks } from "@/lib/builder-config";
 export function Editor() {
   const {
     config, creator, brief, suggestions, ready, locked, unlocking, error,
@@ -231,7 +231,7 @@ export function Editor() {
       </main>
       <footer className="studio-footer">
         <span>Customizable interface. Managed Overskill engine.</span>
-        <a href={builderConfig.docsUrl}>Powered by Overskill ↗</a>
+        <a href={overskillLinks.docsUrl}>Powered by Overskill ↗</a>
       </footer>
     </div>
   );

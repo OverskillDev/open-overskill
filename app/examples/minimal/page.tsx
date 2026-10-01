@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { MinimalBuilder } from "@/components/examples/MinimalBuilder";
 
-export const metadata = { title: "Minimal builder example | Open Overskill" };
+export const metadata = { title: "Minimal builder example" };
 
 export default function MinimalBuilderPage() {
   return (

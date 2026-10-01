@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { builderConfig } from "@/lib/builder-config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Open Overskill — Build your own AI app builder",
-  description:
-    "A customizable builder interface powered by the Overskill partner API. Explore the local pilot.",
+  title: {
+    default: `${builderConfig.name} — ${builderConfig.tagline}`,
+    template: `%s — ${builderConfig.name}`,
+  },
+  description: builderConfig.description,
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%2345e760'/><path d='M35 30 15 50l20 20m30-40 20 20-20 20' fill='none' stroke='%23202123' stroke-width='8'/></svg>",
   },

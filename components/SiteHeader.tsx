@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { BrandMark } from "./BrandMark";
+import { BrandMark, BrandName } from "./BrandMark";
 import { builderConfig } from "@/lib/builder-config";
 export function SiteHeader({ studio = false }: { studio?: boolean }) {
   return (
     <header className="site-header">
-      <Link className="wordmark" href="/">
+      <Link className="wordmark" href="/" aria-label={`${builderConfig.name} home`}>
         <BrandMark />
         <span>
-          {builderConfig.name === "Open Overskill" ? (
-            <>open<span className="wordmark-light">overskill</span></>
-          ) : builderConfig.name}
+          <BrandName lightClassName="wordmark-light" />
           <sup>pilot</sup>
         </span>
       </Link>

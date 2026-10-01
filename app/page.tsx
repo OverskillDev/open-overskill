@@ -12,6 +12,7 @@ import {
   Terminal,
 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { builderConfig, overskillLinks } from "@/lib/builder-config";
 
 export default function Page() {
   return (
@@ -301,14 +302,14 @@ export default function Page() {
           <div>
             <h3>Build alongside us.</h3>
             <p>
-              The starter and components are ready to explore locally. Live
-              partner access, merchant onboarding, and credit responsibility
-              are arranged during the pilot.
+              Explore the starter locally. Stage one uses each creator
+              workspace’s existing Overskill packs. Live access is arranged
+              during the pilot; merchant rollout is separate.
             </p>
           </div>
           <a
             className="button secondary"
-            href="https://www.overskill.com/developers/partners"
+            href={overskillLinks.docsUrl}
           >
             Partner API <ArrowUpRight size={16} />
           </a>
@@ -326,10 +327,10 @@ export default function Page() {
         </section>
       </main>
       <footer className="site-footer">
-        <span>Open Overskill · powered by Overskill</span>
+        <span>{builderConfig.name} · powered by Overskill</span>
         <div>
           <Link href="/guide">Quickstart</Link>
-          <a href="https://www.overskill.com">
+          <a href={overskillLinks.platformUrl}>
             Overskill <ArrowUpRight size={13} />
           </a>
         </div>
