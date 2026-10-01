@@ -8,7 +8,7 @@ const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'open-overskill-workspace-'));
 fs.symlinkSync(path.join(root, 'node_modules'), path.join(out, 'node_modules'), 'dir');
-for (const name of ['customer-store', 'customer-auth', 'customer-workspace', 'customer-purchases', 'pilot-security', 'creator-provisioning', 'credit-account', 'builder-config']) {
+for (const name of ['customer-store', 'customer-auth', 'customer-configuration', 'customer-workspace', 'customer-purchases', 'pilot-security', 'creator-provisioning', 'credit-account', 'builder-config']) {
   const source = fs.readFileSync(path.join(root, 'lib', `${name}.ts`), 'utf8');
   fs.writeFileSync(path.join(out, `${name}.js`), ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText);
 }

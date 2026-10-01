@@ -37,6 +37,14 @@ The identity provider must issue an ID token containing `sub`, `email`, and `ema
 
 The identity implementation is exercised with a protocol fixture. It does not establish that a real provider or a public deployment has been configured. Live workspace provisioning, verified core API support, and paid pack checkout have their own readiness requirements; do not infer those from successful sign-in.
 
+### Read-only configuration check
+
+Run `npm run doctor -- --customer` for the customer workspace, or `npm run doctor -- --customer --production` to use production environment-file precedence. This mode uses the runtime's pure origin, OIDC and encryption validators, checks the Node/SQLite runtime requirement, and inspects existing directory/database metadata as the current OS user. It does not open SQLite, contact an identity provider or core API, write files, create directories, change permissions or print configuration values.
+
+In live mode, this diagnostic requires an explicit `OVERSKILL_API_BASE`, `OPEN_OVERSKILL_ORIGIN` and `OPEN_OVERSKILL_DATA_DIR`, plus the live API settings and identity/encryption settings above. The data directory must already exist, be private and writable, and use an absolute path; the directory and any existing database must not be symlinks. This is deliberately stricter than the runtime's default data path. An absent default demo directory is allowed and left absent. Legacy `OPEN_OVERSKILL_CREATOR_EMAIL` and `OVERSKILL_CREATOR_ID` are not customer requirements; omit `--customer` to check the original operator sandbox instead.
+
+Passing means the inspected local configuration is shaped correctly. It does not prove issuer ownership, provider registration/callback/scopes, client-secret requirements, real sign-in, encryption-key entropy or recovery, durable volumes/backups, database integrity, deployed core capabilities, approved customers, spending caps or paid acceptance. Complete those operational checks separately before enabling real operations.
+
 ## Core API and billing requirements
 
 The shared API adapter needs approved server-side partner credentials, `OVERSKILL_LIVE_ENABLED=1`, and a server-side `OPEN_OVERSKILL_OPERATOR_TOKEN` of at least 32 characters. This token is a compatibility requirement of the shared live guard; customer authentication uses the OIDC session. `/workspace` gets the verified email and immutable creator ID from its authenticated record, so the original operator fixture variables do not select its customer or payer.
@@ -68,7 +76,7 @@ The UI presents only an explicit HTTPS `whop.com` checkout link. It does not ope
 
 Purchase state and read availability are separate. A failed status read preserves the last confirmed payment/refund facts and exposes `readAvailable: false`, hides the checkout link and blocks another purchase until a successful refresh. A fresh core response reporting a credit grant triggers a separate balance read; the browser never increments balances itself. Refund and partial-refund status are displayed from core, with current available credits shown independently. This starter does not implement a second fulfillment or refund writer.
 
-Before a hosted paid pilot, review and configure the exact core contract, then verify a real customer checkout through payment, authoritative status, existing-core fulfillment, balance change and refund handling. Reusable-link behavior and manual recovery also need acceptance. Browser fixtures for completed/refunded states are not real payment evidence, and source publication remains subject to the selected license and release gates.
+Before a hosted paid pilot, review and configure the exact core contract, then verify a real customer checkout through payment, authoritative status, existing-core fulfillment, balance change and refund handling. Reusable-link behavior and manual recovery also need acceptance. Browser fixtures for completed/refunded states are not real payment evidence. The exported original source uses MIT; public publication remains subject to the release gates.
 
 ## Browser and session boundaries
 

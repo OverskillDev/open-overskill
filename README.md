@@ -13,7 +13,7 @@ Use **Node 22.23 or newer** and a writable, persistent local directory:
 ```sh
 npm ci
 npm run setup
-npm run doctor
+npm run doctor -- --customer
 npm run dev
 # Open http://127.0.0.1:3577/workspace
 ```
@@ -107,7 +107,9 @@ For a live customer adapter, configure the canonical application origin, trusted
 
 For the original `/builder` operator sandbox, additionally set `OPEN_OVERSKILL_CREATOR_EMAIL` and a durable `OVERSKILL_CREATOR_ID`. In `/workspace`, both the verified email and immutable creator ID come from the authenticated customer record instead; do not put a shared creator ID into browser requests.
 
-`doctor` currently checks the original operator configuration without network calls. It does not validate OIDC, customer storage, provider credentials, core deployment support, credit funding, or checkout readiness. `npm run doctor -- --production` selects production-build environment precedence; it is not a production certification.
+Use `npm run doctor -- --customer` for `/workspace`. It checks configuration shape with the runtime's origin, OIDC and encryption rules, the Node/SQLite runtime requirement, and existing storage permissions without opening a database, contacting providers, creating files, or printing configuration values. Live customer readiness requires an explicit API base and application origin, OIDC issuer/client ID, a canonical 32-byte base64 encryption key, and an existing private writable absolute data directory; hosted HTTPS origins also require explicit opt-in. It does not require the operator creator email/ID fixtures.
+
+`npm run doctor -- --customer --production` selects production environment-file precedence. A passing report cannot prove provider registration, credentials/scopes, real sign-in, persistent-volume durability, backups, deployed core support, approved funding/caps or checkout acceptance. Without `--customer`, `doctor` retains the original operator checks. Neither mode certifies a production release.
 
 ## Hosting and data boundaries
 

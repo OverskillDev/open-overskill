@@ -5,6 +5,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import type { ChatMessage, StatusResponse } from "./types";
+import { parseCustomerEncryptionKey } from "./customer-configuration";
 
 export interface CustomerRecord {
   id: string; issuer: string; subject: string; externalCreatorId: string;
@@ -40,11 +41,7 @@ function noSymlink(path: string) {
 }
 function encryptionKey(directory: string, live: boolean): Buffer {
   const configured = process.env.OPEN_OVERSKILL_ENCRYPTION_KEY;
-  if (configured) {
-    const key = Buffer.from(configured, "base64");
-    if (key.length !== 32 || key.toString("base64") !== configured) throw new Error("OPEN_OVERSKILL_ENCRYPTION_KEY must be exactly 32 random bytes encoded as base64.");
-    return key;
-  }
+  if (configured) return parseCustomerEncryptionKey(configured);
   if (live) throw new Error("Live customer storage requires OPEN_OVERSKILL_ENCRYPTION_KEY.");
   const file = join(directory, "demo-encryption-key");
   noSymlink(file);

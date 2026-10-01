@@ -25,3 +25,22 @@ export function loadPilotRules(env) {
   }, { filename, timeout: 1_000 });
   return module.exports;
 }
+
+// Only the pure customer configuration module is evaluated. Importing the
+// customer auth/store modules here could discover a provider or initialize disk.
+export function loadCustomerRules(env, pilotRules = loadPilotRules(env)) {
+  const filename = fileURLToPath(new URL("../lib/customer-configuration.ts", import.meta.url));
+  const compiled = ts.transpileModule(readFileSync(filename, "utf8"), {
+    fileName: filename,
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const module = { exports: {} };
+  vm.runInNewContext(compiled, {
+    module, exports: module.exports, process: { env }, URL, Buffer,
+    require(name) {
+      if (name !== "./pilot-security") throw new Error("Unexpected customer configuration dependency");
+      return pilotRules;
+    },
+  }, { filename, timeout: 1_000 });
+  return module.exports;
+}

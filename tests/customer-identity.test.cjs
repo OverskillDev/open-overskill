@@ -7,7 +7,7 @@ const crypto = require('node:crypto');
 const ts = require('typescript');
 const output = fs.mkdtempSync(path.join(os.tmpdir(), 'open-overskill-customers-'));
 const sourceRoot = path.join(__dirname, '..');
-const files = ['lib/customer-store.ts','lib/customer-auth.ts','lib/pilot-security.ts', ...['me','demo','login','callback','logout'].map(name=>`app/api/customer/${name}/route.ts`),
+const files = ['lib/customer-store.ts','lib/customer-auth.ts','lib/customer-configuration.ts','lib/pilot-security.ts', ...['me','demo','login','callback','logout'].map(name=>`app/api/customer/${name}/route.ts`),
   'app/api/workspace/provision/route.ts', 'app/api/workspace/generate/route.ts', 'app/api/workspace/apps/[id]/deploy/route.ts'];
 for (const file of files) {
   let source = fs.readFileSync(path.join(sourceRoot, file), 'utf8')

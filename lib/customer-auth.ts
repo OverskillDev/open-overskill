@@ -3,21 +3,13 @@ import * as oidc from "openid-client";
 import { randomBytes } from "node:crypto";
 import { getCustomerStore, hashCustomerToken, type CustomerRecord } from "./customer-store";
 import { isLoopback, PilotError, readJsonObject } from "./pilot-security";
+import { customerMode, customerOrigin, customerOidcSettings } from "./customer-configuration";
+export { customerMode, customerOrigin } from "./customer-configuration";
 
 export const CUSTOMER_SESSION_COOKIE = "open_overskill_customer";
 export const CUSTOMER_OIDC_COOKIE = "open_overskill_login";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const OIDC_TTL_MS = 10 * 60 * 1000;
-export const customerMode = (): "demo" | "live" => ["0", "false"].includes((process.env.OVERSKILL_MOCK || "1").toLowerCase()) ? "live" : "demo";
-export function customerOrigin(): URL {
-  let url: URL;
-  try { url = new URL(process.env.OPEN_OVERSKILL_ORIGIN || "http://127.0.0.1:3577"); }
-  catch { throw new PilotError(503, "customer_origin_invalid", "Configure a valid customer application origin."); }
-  if (url.username || url.password || url.search || url.hash || url.pathname !== "/" || !["http:", "https:"].includes(url.protocol)) throw new PilotError(503, "customer_origin_invalid", "Configure an origin without a path, credentials, or query.");
-  if (!isLoopback(url.hostname) && (url.protocol !== "https:" || process.env.OPEN_OVERSKILL_HOSTED !== "1")) throw new PilotError(503, "hosted_auth_not_enabled", "Hosted customer authentication requires HTTPS and explicit configuration.");
-  if (customerMode() === "demo" && !isLoopback(url.hostname)) throw new PilotError(503, "demo_is_local_only", "Simulated accounts are available only on loopback.");
-  return url;
-}
 function validateRequestHost(req: Request): URL {
   const origin = customerOrigin(); const incoming = new URL(req.url);
   const host = req.headers.get("host");
@@ -103,17 +95,8 @@ export function logoutCustomer(req: Request): Response {
   response.headers.append("Set-Cookie", setCookie(CUSTOMER_OIDC_COOKIE, "", 0));
   return response;
 }
-function oidcSettings() {
-  if (customerMode() !== "live") throw new PilotError(404, "login_unavailable", "Use a simulated account in local demo mode.");
-  const issuerValue = process.env.OPEN_OVERSKILL_OIDC_ISSUER; const clientId = process.env.OPEN_OVERSKILL_OIDC_CLIENT_ID;
-  if (!issuerValue || !clientId || !process.env.OPEN_OVERSKILL_ENCRYPTION_KEY) throw new PilotError(503, "oidc_not_configured", "Configure customer identity before enabling sign in.");
-  let issuer: URL;
-  try { issuer = new URL(issuerValue); } catch { throw new PilotError(503, "oidc_not_configured", "Configure a valid HTTPS identity issuer."); }
-  if (issuer.protocol !== "https:" || issuer.username || issuer.password || issuer.search || issuer.hash) throw new PilotError(503, "oidc_not_configured", "Configure a valid HTTPS identity issuer.");
-  return { issuer, issuerValue, clientId, secret: process.env.OPEN_OVERSKILL_OIDC_CLIENT_SECRET };
-}
 async function oidcConfiguration() {
-  const settings = oidcSettings();
+  const settings = customerOidcSettings();
   const config = await oidc.discovery(settings.issuer, settings.clientId, settings.secret, undefined, { timeout: 10, execute: [oidc.enableNonRepudiationChecks] });
   return { settings, config };
 }
@@ -135,7 +118,7 @@ export async function finishCustomerLogin(req: Request): Promise<Response> {
   if (incoming.pathname !== "/api/customer/callback") throw new PilotError(400, "invalid_oidc_callback", "Invalid sign-in callback.");
   const browserToken = cookie(req, CUSTOMER_OIDC_COOKIE); const state = incoming.searchParams.get("state");
   if (!browserToken || !state || incoming.searchParams.getAll("state").length !== 1) throw new PilotError(400, "login_state_invalid", "Sign-in expired or belongs to another browser. Start again.");
-  const settings = oidcSettings();
+  const settings = customerOidcSettings();
   const attempt = getCustomerStore().consumeOidcAttempt(state, browserToken);
   if (!attempt || attempt.issuer !== settings.issuerValue) throw new PilotError(400, "login_state_invalid", "Sign-in expired or was already used. Start again.");
   const { config } = await oidcConfiguration();
