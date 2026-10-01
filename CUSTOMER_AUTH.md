@@ -76,7 +76,7 @@ The UI presents only an explicit HTTPS `whop.com` checkout link. It does not ope
 
 Purchase state and read availability are separate. A failed status read preserves the last confirmed payment/refund facts and exposes `readAvailable: false`, hides the checkout link and blocks another purchase until a successful refresh. A fresh core response reporting a credit grant triggers a separate balance read; the browser never increments balances itself. Refund and partial-refund status are displayed from core, with current available credits shown independently. This starter does not implement a second fulfillment or refund writer.
 
-Before a hosted paid pilot, review and configure the exact core contract, then verify a real customer checkout through payment, authoritative status, existing-core fulfillment, balance change and refund handling. Reusable-link behavior and manual recovery also need acceptance. Browser fixtures for completed/refunded states are not real payment evidence. The exported original source uses MIT; public publication remains subject to the release gates.
+Before a hosted paid pilot, review and configure the exact core contract, then verify a real customer checkout through payment, authoritative status, existing-core fulfillment, balance change and refund handling. Reusable-link behavior and manual recovery also need acceptance. Browser fixtures for completed/refunded states are not real payment evidence. Availability of the MIT-licensed reference source does not establish readiness for a hosted paid service.
 
 ## Browser and session boundaries
 

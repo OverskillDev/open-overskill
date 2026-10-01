@@ -26,7 +26,7 @@ export default function GuidePage() {
             generation, credits and publication without provider calls.
           </p>
           <pre>
-            <code>{"npm ci\nnpm run setup\nnpm run doctor -- --customer\nnpm run dev\n# Open http://127.0.0.1:3577/workspace"}</code>
+            <code>{"git clone https://github.com/OverskillDev/open-overskill.git\ncd open-overskill\nnpm ci\nnpm run setup\nnpm run doctor -- --customer\nnpm run dev\n# Open http://127.0.0.1:3577/workspace"}</code>
           </pre>
           <p>
             Continue as Alice, create an app, edit it, and reopen it after
@@ -198,12 +198,14 @@ export default function BuilderPage() {
           </p>
           <p>
             The original exported interface and integration code have an MIT
-            license, with separate third-party notices. Publication of the
-            reviewed repository is pending. Overskill’s generation pipelines,
+            license, with separate third-party notices. Overskill’s generation pipelines,
             internal prompts, runtime services, credit ledger and payment
             infrastructure remain managed services. The source license does
             not grant access to private code or managed services.
           </p>
+          <a className="text-link" href="https://github.com/OverskillDev/open-overskill">
+            Get the original source <ArrowUpRight size={16} />
+          </a>
         </section>
       </main>
     </>

@@ -334,7 +334,7 @@ export default function Page() {
             Overskill <ArrowUpRight size={13} />
           </a>
         </div>
-        <span>Private pilot · publication pending</span>
+        <span>MIT-licensed starter · hosted pilot in preparation</span>
       </footer>
     </>
   );

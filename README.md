@@ -4,13 +4,15 @@ An example AI app builder powered by the Overskill partner API. Customize the in
 
 **Build software with words.**
 
-The customer workspace MVP runs locally. The original interface, examples and server adapter are prepared for public release under MIT. Public repository publication and the hosted paid experience are still pending. Overskill's generation pipelines remain a managed service.
+This repository contains the MIT-licensed original interface, examples and server adapter. The customer workspace MVP runs locally; the hosted paid experience is still in preparation. Overskill's generation pipelines remain a managed service.
 
 ## Run the customer demo
 
 Use **Node 22.23 or newer** and a writable, persistent local directory:
 
 ```sh
+git clone https://github.com/OverskillDev/open-overskill.git
+cd open-overskill
 npm ci
 npm run setup
 npm run doctor -- --customer
