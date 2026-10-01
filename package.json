@@ -1,0 +1,37 @@
+{
+  "name": "open-overskill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A customizable AI app builder starter powered by the Overskill partner API.",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 -p 3577",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 -p 3577",
+    "typecheck": "tsc --noEmit",
+    "test:security": "node --test tests/pilot-security.test.cjs",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "test:cli": "node --test tests/pilot-cli.test.cjs",
+    "test:builder": "node --test tests/builder-client-controller.test.cjs",
+    "test:credits": "node --test tests/credit-account.test.cjs",
+    "test:customers": "node --test tests/customer-identity.test.cjs tests/customer-workspace.test.cjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.469.0",
+    "next": "^15.5.0",
+    "openid-client": "6.8.8",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
+  }
+}
