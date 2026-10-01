@@ -211,6 +211,22 @@ export function hasUsableCreditSnapshot(snapshot: CreditAccountSnapshot | null):
     typeof snapshot.balance?.credits === "number" && Number.isFinite(snapshot.balance.credits);
 }
 
+export type WorkspaceFundingState = "unknown" | "empty" | "reserved" | "ready";
+
+/** Customer onboarding/preflight only. Core still authorizes every real spend. */
+export function workspaceFundingState(snapshot: CreditAccountSnapshot | null): WorkspaceFundingState {
+  if (!snapshot) return "unknown";
+  const balance = snapshot.balance;
+  if (!balance || balance.status === "unavailable" || typeof balance.credits !== "number" || !Number.isFinite(balance.credits)) return "unknown";
+  if (balance.credits <= 0) return "empty";
+  if (snapshot.meter) {
+    const available = snapshot.meter.metrics.available_for_admission;
+    if (available.status !== "known" || typeof available.value !== "number" || !Number.isFinite(available.value)) return "unknown";
+    return available.value > 0 ? "ready" : "reserved";
+  }
+  return ["partial_legacy", "simulated"].includes(snapshot.telemetry) ? "ready" : "unknown";
+}
+
 type CreditUsageRead = () => Promise<{ ok: boolean; status: number; json: unknown }>;
 
 /** Shared read path for presentation and the server's generation preflight. */

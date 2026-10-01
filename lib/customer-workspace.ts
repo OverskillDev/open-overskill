@@ -3,7 +3,7 @@ import { requireCustomer, publicCustomer } from "./customer-auth";
 import { getCustomerStore, type CustomerRecord, type CustomerApp } from "./customer-store";
 import { acceptCreatorProvision } from "./creator-provisioning";
 import { builderConfig } from "./builder-config";
-import { creatorCreditTeamId, hasUsableCreditSnapshot, normalizeCreditAccountUsage, readCreditAccountSnapshot } from "./credit-account";
+import { creatorCreditTeamId, normalizeCreditAccountUsage, readCreditAccountSnapshot, workspaceFundingState } from "./credit-account";
 import { PilotError, inputString, redactSecrets, requireLiveConfiguration, type PilotSession } from "./pilot-security";
 import { deployTracked, generate, getCreatorPackCapability, getCreatorUsage, getDeploymentStatus, getMessages, getStatus, getUsage, provisionCreator } from "./overskill";
 import type { AppSummary, ChatMessage, StatusResponse } from "./types";
@@ -103,7 +103,7 @@ export async function provisionWorkspace(req: Request, user: CustomerRecord) {
       }
     }
   } catch (error) {
-    if (error instanceof PilotError && ["creator_identity_unavailable", "live_not_configured", "invalid_api_base", "creator_identity_not_configured", "credential_required"].includes(error.code)) {
+    if (error instanceof PilotError && ["creator_identity_unavailable", "creator_onboarding_unavailable", "live_not_configured", "invalid_api_base", "creator_identity_not_configured", "credential_required"].includes(error.code)) {
       db.releaseProvisioning(user.id);
     } else if (db.getCreator(user.id).state === "provisioning") db.markCreatorState(user.id, "recovery_required");
     throw error;
@@ -198,7 +198,10 @@ export async function generateWorkspaceApp(req: Request, user: CustomerRecord, i
   if (!id && db.listApps(user.id).length >= MAX_APPS) throw new PilotError(429, "workspace_app_limit", "This reference workspace has reached its app limit.");
   const session = workspaceSession(user);
   const credits = await workspaceCredits(user);
-  if (!hasUsableCreditSnapshot(credits)) throw new PilotError(503, "credits_unavailable", "Credit information is unavailable. No build was requested.");
+  const funding = workspaceFundingState(credits);
+  if (funding === "unknown") throw new PilotError(503, "credits_unavailable", "Credit information is unavailable. No build was requested.");
+  if (funding === "empty") throw new PilotError(402, "credits_required", "Add credits to your workspace before starting a build. No build was requested.");
+  if (funding === "reserved") throw new PilotError(409, "credits_reserved", "Your available credits are reserved for other work. Refresh after that work finishes. No build was requested.");
   if (requireCustomer(req).id !== user.id) throw new PilotError(401, "session_ended", "Sign in again to build.");
   const lock = db.claimOperation(user.id, "app-write");
   if (!lock) throw new PilotError(409, "submission_unresolved", "An earlier submission needs reconciliation. No additional build was requested.");

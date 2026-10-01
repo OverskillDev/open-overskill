@@ -2,22 +2,43 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { overskillLinks } from "@/lib/builder-config";
-export const metadata = { title: "Quickstart" };
+export const metadata = { title: "API & operator setup" };
 export default function GuidePage() {
   return (
     <>
       <SiteHeader />
       <main className="guide">
-        <div className="eyebrow">THE QUICKSTART</div>
+        <div className="eyebrow">FOR AGENCIES, PLATFORMS & BUILDER OPERATORS</div>
         <h1>
           A working starting point.
           <br />
           <span>Then make it yours.</span>
         </h1>
         <p className="guide-lead">
-          Start with a customer workspace, make the interface yours, and
-          connect it to the managed Overskill API.
+          Launch a builder with your brand, or bring app building into an
+          existing product. Your team owns the experience; Overskill supplies
+          the managed generation API.
         </p>
+        <section>
+          <h2>Set up the operator. Then onboard your customers.</h2>
+          <p>
+            Clone the public starter and explore the local demo first. Live
+            operator access is arranged with the Overskill team: agree your
+            partner access, approved origin and customer identity setup before
+            enabling real usage. A customer sign-in does not issue a partner
+            API key or enroll you in a reseller program.
+          </p>
+          <p>
+            Your customers follow a simpler path inside your builder: verify
+            their account, create their own workspace, add an existing
+            Overskill credit pack, then build. Each customer's apps and credits
+            remain isolated. Customers with an available balance can continue
+            without another purchase.
+          </p>
+          <Link className="text-link" href="/workspace">
+            See the customer onboarding flow <ArrowRight size={16} />
+          </Link>
+        </section>
         <section>
           <h2>01 / Run the starter</h2>
           <p>
@@ -163,7 +184,8 @@ export default function BuilderPage() {
           <p>
             Stage one uses existing Overskill packs. Each customer’s builds use
             that customer’s creator-workspace balance and existing billing
-            settings. Model access is managed by Overskill; customers do not
+            settings. New Open Overskill workspaces start with zero free credits;
+            existing balances are preserved. Model access is managed by Overskill; customers do not
             supply model API keys. Operator-funded usage, custom packs and
             partner commissions are future possibilities.
           </p>
@@ -191,7 +213,7 @@ export default function BuilderPage() {
           <p>
             Configure and verify the real identity provider, persistent host,
             backups, rate limits and recovery procedure. Release the compatible
-            core contracts, agree the initial funding and spending limits, and
+            core contracts, verify zero-credit onboarding and spending limits, and
             test actual sign-in, purchase, fulfillment, refund, generation and
             publication. The hosted paid experience is pending those checks.
             Merchant onboarding remains a separate rollout.

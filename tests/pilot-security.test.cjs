@@ -238,7 +238,7 @@ test('malformed isolated creator response fails closed and blocks generation', a
   const calls = [];
   global.fetch = async (url, options) => {
     calls.push({ url, options });
-    if (url.endsWith('/capabilities')) return Response.json({ creator_identity: { version: 1, key_recovery: 'compare_and_swap' } });
+    if (url.endsWith('/capabilities')) return Response.json({ creator_identity: { version: 1, key_recovery: 'compare_and_swap', onboarding_profile: 'api_creator_paid_v1' } });
     return Response.json({ team: { id: 123 }, api_key: null }, { status: 201 });
   };
   const response = await provision(cookie);
@@ -308,7 +308,7 @@ async function liveSession() {
   assert.equal(response.status, 200);
   return response.headers.get('set-cookie').split(';')[0];
 }
-const capabilityResponse = () => Response.json({ creator_identity: { version: 1, key_recovery: 'compare_and_swap' } });
+const capabilityResponse = () => Response.json({ creator_identity: { version: 1, key_recovery: 'compare_and_swap', onboarding_profile: 'api_creator_paid_v1' } });
 const creatorResponse = (overrides = {}) => ({
   team: { id: 123, name: 'Creator workspace', subscription_tier: 'free', credit_tier: 'tier_500', created_at: '2026-09-29T00:00:00Z' },
   creator: { id: 12, external_creator_id: 'pilot-creator-1' },
@@ -346,12 +346,28 @@ test('live provisioning sends stable server identity, keeps a stored key and nev
   assert.equal(json.recoveryRequired, false);
   assert.equal(json.api_key.key, '[REDACTED]');
   assert.equal(JSON.parse(calls[1].options.body).external_creator_id, 'pilot-creator-1');
+  assert.equal(JSON.parse(calls[1].options.body).expected_onboarding_profile, 'api_creator_paid_v1');
   assert.equal(JSON.parse(calls[1].options.body).user_email, 'operator@example.invalid');
   await provision(cookie);
   assert.equal(calls.length, 2);
   const recover = await route('creator/recover').POST(request('/api/creator/recover', { method: 'POST', cookie, body: {} }));
   assert.equal(recover.status, 409);
   assert.equal(calls.length, 2);
+});
+
+test('identity support alone cannot provision before zero-credit onboarding is advertised', async () => {
+  await liveSession();
+  for (const profile of [undefined, 'standard_signup', { profile: 'api_creator_paid_v1' }]) {
+    const calls = [];
+    global.fetch = async (url, options) => {
+      calls.push({ url, method: options.method });
+      return Response.json({ creator_identity: { version: 1, key_recovery: 'compare_and_swap', onboarding_profile: profile } });
+    };
+    await assert.rejects(() => adapter.provisionCreator({ name: 'New customer', userEmail: 'new@example.invalid' }), e => e.code === 'creator_onboarding_unavailable');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'GET');
+    assert.match(calls[0].url, /creators\/capabilities$/);
+  }
 });
 
 test('replayed creator without raw key requires explicit CAS recovery before any build', async () => {
